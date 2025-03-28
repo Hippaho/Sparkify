@@ -4,8 +4,8 @@ from airflow.utils.decorators import apply_defaults
 
 class LoadDimensionOperator(BaseOperator):
     """
-    LoadDimensionOperator: Your trusty sidekick for populating dimension tables in Redshift.
-    Think of it as the librarian, neatly organizing your data into its proper shelves.
+    LoadDimensionOperator: It helps with populating dimension tables in Redshift.
+    Its function is to neatly organize your data where it's supposed to go.
     """
 
     ui_color = '#80BD9E'  # A soothing green, for things that go well
@@ -23,7 +23,7 @@ class LoadDimensionOperator(BaseOperator):
                  redshift_conn_id="",  # How we connect to Redshift (Airflow connection ID)
                  *args, **kwargs):
         """
-        Constructor. Sets up our librarian with the table, the recipe (SQL), and the connection details.
+        Constructor. Sets it up with the table, the recipe (SQL), and the connection details.
 
         Args:
             table (str): The dimension table we're loading into.
@@ -40,7 +40,7 @@ class LoadDimensionOperator(BaseOperator):
     def execute(self, context):
         """
         Executes the SQL query to load data into the dimension table.
-        Basically, we're just running the insert statement and hoping for the best.
+        Run the insert statement. Check for any errors. 
         """
         try:
             # Grab our Redshift connection, the librarian's direct line to the database

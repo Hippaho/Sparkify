@@ -5,8 +5,8 @@ from airflow.contrib.hooks.aws_hook import AwsHook
 
 class StageToRedshiftOperator(BaseOperator):
     """
-    StageToRedshiftOperator: This operator is the data mover, shuttling data from S3 into Redshift staging tables.
-    It's like a delivery service for raw data, ensuring it shows up in Redshift
+    StageToRedshiftOperator: This operator moves data, with moving data from S3 into Redshift staging tables.
+    It delivers raw data, ensuring it shows up in Redshift
     """
 
     ui_color = '#358140'  # A nice, earthy green for a job well done

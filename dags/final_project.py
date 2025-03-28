@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 # Default settings for the DAG - like who owns it, when it runs, etc.
 default_args = {
     'owner': 'udacity-student',  # Let's give it a more personal touch
-    'depends_on_past': False,  # No need to wait for past runs, let's go!
-    'start_date': datetime(2025, 1, 18),  # Pick a date, any date... how about the future?
-    'email_on_failure': True,  # Shoot me an email if things go south
-    'retries': 3,  # Give it a few tries before giving up
+    'depends_on_past': False,  # No need to wait for past runs
+    'start_date': datetime(2025, 1, 18),  # Pick a date
+    'email_on_failure': True,  # Email me if something goes wrong
+    'retries': 3,  # Give it a few tries before exiting job
     'email_on_retry': False,  # Don't spam me on retries, just failures
     'retry_delay': timedelta(minutes=5),  # Wait a bit before retrying
-    'catchup': False,  # No need to backfill, let's keep it current
+    'catchup': False,  # No backfilling
 }
 
 # The main event: our DAG!
@@ -36,10 +36,10 @@ with DAG('sparkify_data_warehouse_pipeline',  # A more descriptive name
          schedule_interval='0 * * * *'  # Runs hourly, on the hour.
          ) as dag:
 
-    # Kick things off with a simple start marker
+    # Start it off with a simple start marker
     start_operator = DummyOperator(task_id='Begin_pipeline', dag=dag)
 
-    # First up, let's get the raw data from S3 into Redshift staging tables
+    # Get the raw data from S3 into Redshift staging tables
     stage_events_to_redshift = StageToRedshiftOperator(
         task_id='stage_user_activity_logs',  # More descriptive task name
         dag=dag,
@@ -64,7 +64,7 @@ with DAG('sparkify_data_warehouse_pipeline',  # A more descriptive name
         region='us-east-1'
     )
 
-    # Next, we'll load the fact table - the heart of our data warehouse
+    # Load the fact table - the important section of the data warehouse
     load_songplays_table = LoadFactOperator(
         task_id='load_songplays_fact',  # Clearer task name
         dag=dag,
@@ -103,7 +103,7 @@ with DAG('sparkify_data_warehouse_pipeline',  # A more descriptive name
             redshift_conn_id="redshift"
         )
 
-    # Time for some data quality checks to make sure everything's in order
+    # Daily quality checks
     with TaskGroup(group_id='check_data_quality') as data_quality_check:
         artists_data_quality_checks = DataQualityOperator(
             task_id='check_artists_quality',
@@ -140,7 +140,7 @@ with DAG('sparkify_data_warehouse_pipeline',  # A more descriptive name
             redshift_conn_id="redshift"
         )
 
-    # And finally, a dummy operator to mark the end of our pipeline
+    # A dummy operator to mark the end of the pipeline
     end_operator = DummyOperator(task_id='End_pipeline', dag=dag)
 
     # Define the order of operations

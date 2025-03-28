@@ -4,9 +4,9 @@ from airflow.utils.decorators import apply_defaults
 
 class DataQualityOperator(BaseOperator):
     """
-    DataQualityOperator: The Sherlock Holmes of Airflow operators.
-    It sniffs out data quality issues in your Redshift tables, particularly hunting for those pesky null values.
-    Think of it as your first line of defense against unclean data.
+    DataQualityOperator: It helps locate problems among the Airflow operators.
+    It checks for data quality issues in the Redshift tables, particularly in getting rid of null values.
+    It prevents against unclean data.
     """
 
     ui_color = '#89DA59'  # A calming green, because data quality shouldn't stress you out
@@ -18,7 +18,7 @@ class DataQualityOperator(BaseOperator):
                  redshift_conn_id="",  # How do we talk to Redshift? (Airflow connection ID)
                  *args, **kwargs):
         """
-        Constructor. Sets up our data detective with the table, column, and Redshift connection.
+        Constructor. Sets up the data with the table, column, and Redshift connection.
 
         Args:
             table (str): The Redshift table to check.
@@ -34,7 +34,7 @@ class DataQualityOperator(BaseOperator):
 
     def execute(self, context):
         """
-        Executes the data quality check. It's like sending our detective to the scene.
+        Executes the data quality check. 
 
         Args:
             context (dict): Airflow context, holding all the clues.
