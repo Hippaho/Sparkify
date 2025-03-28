@@ -6,7 +6,7 @@ from airflow.utils.decorators import apply_defaults
 class LoadFactOperator(BaseOperator):
     """
     LoadFactOperator: This operator loads data into your Redshift fact tables.
-    Just give it the SQL and the table name, and watch it go!
+    Just give it the SQL and the table name, and execute it.
     """
 
     ui_color = '#F98866'  # A nice, fiery orange for the Airflow UI

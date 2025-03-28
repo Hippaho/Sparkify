@@ -4,27 +4,28 @@ from airflow.utils.decorators import apply_defaults
 
 class DataQualityOperator(BaseOperator):
     """
-    Airflow possesses a customer operator called The DataQualityOperator, which does data quality utilizing Redshift table 
-    Its job is to look for any null values in a specified column of the table.
+    DataQualityOperator: The Sherlock Holmes of Airflow operators.
+    It sniffs out data quality issues in your Redshift tables, particularly hunting for those pesky null values.
+    Think of it as your first line of defense against unclean data.
     """
 
-    ui_color = '#89DA59'  # UI color for the operator in Airflow
+    ui_color = '#89DA59'  # A calming green, because data quality shouldn't stress you out
 
     @apply_defaults
     def __init__(self,
-                 table="",  # Redshift table name to check
-                 col_name="",  # Column name to check for nulls
-                 redshift_conn_id="",  # Airflow connection ID for Redshift
+                 table="",  # Which Redshift table are we inspecting?
+                 col_name="",  # Which column are we putting under the microscope?
+                 redshift_conn_id="",  # How do we talk to Redshift? (Airflow connection ID)
                  *args, **kwargs):
         """
-        Initializes the DataQualityOperator.
+        Constructor. Sets up our data detective with the table, column, and Redshift connection.
 
         Args:
-            table (str): Redshift table name to check.
-            col_name (str): Column name to check for nulls.
-            redshift_conn_id (str): Airflow connection ID for Redshift.
-            *args: Variable length argument list.
-            **kwargs: Arbitrary keyword arguments.
+            table (str): The Redshift table to check.
+            col_name (str): The column to scrutinize for null values.
+            redshift_conn_id (str): The Airflow connection ID for Redshift.
+            *args: Extra arguments for the BaseOperator.
+            **kwargs: Extra keyword arguments for the BaseOperator.
         """
         super(DataQualityOperator, self).__init__(*args, **kwargs)
         self.conn_id = redshift_conn_id
@@ -33,36 +34,35 @@ class DataQualityOperator(BaseOperator):
 
     def execute(self, context):
         """
-        The function actions the data quality check.
+        Executes the data quality check. It's like sending our detective to the scene.
 
         Args:
-            context (dict): Airflow context dictionary.
+            context (dict): Airflow context, holding all the clues.
         """
         try:
-            self.log.info(f'Data quality check on table: {self.table}')
+            self.log.info(f"Investigating {self.table} for nulls in {self.col_name}...")
 
-            # Get a Redshift hook using the provided connection ID
+            # Get our Redshift connection, the detective's direct line to the database
             redshift = PostgresHook(postgres_conn_id=self.conn_id)
 
-            # Execute a SQL query to count null values in the specified column
+            # Let's ask Redshift how many nulls we have
             records = redshift.get_records(f"SELECT COUNT(*) FROM {self.table} WHERE {self.col_name} is NULL")
 
-            # Check if the query returned any results
-            if len(records) < 1 or len(records[0]) < 1:
-                raise ValueError(f"Data quality check failed. {self.table} returned no results")
+            # Did we even get a response? If not, something's fishy
+            if not records or not records[0]:
+                raise ValueError(f"Data quality check failed. {self.table} investigation yielded no results. Something's up.")
 
-            # Extract the number of null records from the query result
+            # How many nulls did we find?
             num_records = records[0][0]
 
-            # Check if there are any null records
+            # If we found any nulls, raise an alarm!
             if num_records > 0:
-                raise ValueError(f"Data quality check failed. {self.table} has {num_records} rows with null values in {self.col_name}")
+                raise ValueError(f"Data quality check failed. {self.table} has {num_records} nulls in {self.col_name}. Data's dirty!")
 
-            # Log a success message if the data quality check passes
-            self.log.info(f"Data quality on table {self.table} check passed with {records[0][0]} records.")
+            # If we get here, all's clear. Log the good news.
+            self.log.info(f"Data quality check on {self.table} passed. No nulls found in {self.col_name}.")
 
         except Exception as err:
-            # Log any exceptions that occur during the data quality check
+            # If our detective stumbles upon an error, log it and throw a fit.
             self.log.exception(err)
-            # Re-raise the exception to fail the Airflow task
             raise err

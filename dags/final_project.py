@@ -13,147 +13,135 @@ from plugins.helpers import final_project_sql_statements as sql
 
 import logging
 
-# Configure basic logging settings
+# Set up logging so we can keep an eye on things
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
-
-# Get a logger instance for this DAG
 logger = logging.getLogger(__name__)
 
-# Default arguments for the DAG
+# Default settings for the DAG - like who owns it, when it runs, etc.
 default_args = {
-    'owner': 'udacity',
-    'depends_on_past': False,  # Do not depend on the success of previous DAG runs
-    'start_date': datetime(2025, 1, 18),  # Start date of the DAG
-    'email_on_failure': True,  # Send email on task failure
-    'retries': 3,  # Retry the task 3 times on failure
-    'email_on_retry': False,  # Do not send email on task retry
-    'retry_delay': timedelta(minutes=5),  # Delay between retries
-    'catchup': False  # Do not backfill missed DAG runs
+    'owner': 'udacity-student',  # Let's give it a more personal touch
+    'depends_on_past': False,  # No need to wait for past runs, let's go!
+    'start_date': datetime(2025, 1, 18),  # Pick a date, any date... how about the future?
+    'email_on_failure': True,  # Shoot me an email if things go south
+    'retries': 3,  # Give it a few tries before giving up
+    'email_on_retry': False,  # Don't spam me on retries, just failures
+    'retry_delay': timedelta(minutes=5),  # Wait a bit before retrying
+    'catchup': False,  # No need to backfill, let's keep it current
 }
 
-# Define the DAG
-with DAG('udac_example_dag',
+# The main event: our DAG!
+with DAG('sparkify_data_warehouse_pipeline',  # A more descriptive name
          default_args=default_args,
-         description='Load and transform data in Redshift with Airflow',
-         schedule_interval='0 * * * *'  # Run the DAG hourly at the 0th minute
+         description='Loads and transforms data in Redshift for Sparkify',
+         schedule_interval='0 * * * *'  # Runs hourly, on the hour.
          ) as dag:
 
-    # Start dummy operator
-    start_operator = DummyOperator(task_id='Begin_execution', dag=dag)
+    # Kick things off with a simple start marker
+    start_operator = DummyOperator(task_id='Begin_pipeline', dag=dag)
 
-    # Stage events data from S3 to Redshift
+    # First up, let's get the raw data from S3 into Redshift staging tables
     stage_events_to_redshift = StageToRedshiftOperator(
-        task_id='stage_events',
+        task_id='stage_user_activity_logs',  # More descriptive task name
         dag=dag,
-        redshift_conn_id="redshift",  # Redshift connection ID
-        aws_credentials_id="aws_credentials",  # AWS credentials connection ID
-        table="staging_events",  # Redshift table name
-        s3_bucket='tpride',  # S3 bucket name
-        s3_key='log_json_path.json',  # S3 key for the JSON log data
+        redshift_conn_id="redshift",
+        aws_credentials_id="aws_credentials",
+        table="staging_events",
+        s3_bucket='tpride',
+        s3_key='log_json_path.json',  # Path to the JSON log data
         s3_json='s3://udacity-dend/log_json_path.json', #Path to the json path file.
-        region='us-east-1'  # AWS region
+        region='us-east-1'
     )
 
-    # Stage songs data from S3 to Redshift
     stage_songs_to_redshift = StageToRedshiftOperator(
-        task_id='stage_songs',
+        task_id='stage_song_metadata',  # Another descriptive task name
         dag=dag,
-        redshift_conn_id="redshift",  # Redshift connection ID
-        aws_credentials_id="aws_credentials",  # AWS credentials connection ID
-        table="staging_songs",  # Redshift table name
-        s3_bucket="tpride",  # S3 bucket name
-        s3_key="song_data",  # S3 key for the song data
-        s3_json='auto',  # JSON format is auto-detected
-        region='us-east-1'  # AWS region
+        redshift_conn_id="redshift",
+        aws_credentials_id="aws_credentials",
+        table="staging_songs",
+        s3_bucket="tpride",
+        s3_key="song_data",  # Path to the song metadata
+        s3_json='auto',  # Let Redshift figure out the JSON format
+        region='us-east-1'
     )
 
-    # Load songplays fact table from staging tables
+    # Next, we'll load the fact table - the heart of our data warehouse
     load_songplays_table = LoadFactOperator(
-        task_id='load_songplays_fact_table',
+        task_id='load_songplays_fact',  # Clearer task name
         dag=dag,
-        table="songplays",  # Redshift table name
-        sql=sql.SqlQueries.songplay_table_insert,  # SQL query for inserting data
-        redshift_conn_id="redshift"  # Redshift connection ID
+        table="songplays",
+        sql=sql.SqlQueries.songplay_table_insert,
+        redshift_conn_id="redshift"
     )
 
-    # Task group for loading dimension tables
-    with TaskGroup(group_id='load_dimension_tables') as load_dimension_tables:
-        # Load users dimension table
+    # Now, let's tackle the dimension tables in a neat task group
+    with TaskGroup(group_id='load_dimensions') as load_dimension_tables:
         load_user_dimension_table = LoadDimensionOperator(
-            task_id='load_user_dim_table',
-            table="users",  # Redshift table name
-            sql=sql.SqlQueries.user_table_insert,  # SQL query for inserting data
-            redshift_conn_id="redshift"  # Redshift connection ID
+            task_id='load_users_dim',
+            table="users",
+            sql=sql.SqlQueries.user_table_insert,
+            redshift_conn_id="redshift"
         )
 
-        # Load songs dimension table
         load_song_dimension_table = LoadDimensionOperator(
-            task_id='load_song_dim_table',
-            table="songs",  # Redshift table name
-            sql=sql.SqlQueries.song_table_insert,  # SQL query for inserting data
-            redshift_conn_id="redshift"  # Redshift connection ID
+            task_id='load_songs_dim',
+            table="songs",
+            sql=sql.SqlQueries.song_table_insert,
+            redshift_conn_id="redshift"
         )
 
-        # Load artists dimension table
         load_artist_dimension_table = LoadDimensionOperator(
-            task_id='load_artist_dim_table',
-            table="artists",  # Redshift table name
-            sql=sql.SqlQueries.artist_table_insert,  # SQL query for inserting data
-            redshift_conn_id="redshift"  # Redshift connection ID
+            task_id='load_artists_dim',
+            table="artists",
+            sql=sql.SqlQueries.artist_table_insert,
+            redshift_conn_id="redshift"
         )
 
-        # Load time dimension table
         load_time_dimension_table = LoadDimensionOperator(
-            task_id='load_time_dim_table',
-            table="time",  # Redshift table name
-            sql=sql.SqlQueries.time_table_insert,  # SQL query for inserting data
-            redshift_conn_id="redshift"  # Redshift connection ID
+            task_id='load_time_dim',
+            table="time",
+            sql=sql.SqlQueries.time_table_insert,
+            redshift_conn_id="redshift"
         )
 
-    # Task group for data quality checks
-    with TaskGroup(group_id='data_quality_check') as data_quality_check:
-        # Data quality checks for artists table
+    # Time for some data quality checks to make sure everything's in order
+    with TaskGroup(group_id='check_data_quality') as data_quality_check:
         artists_data_quality_checks = DataQualityOperator(
-            task_id='artists_data_quality_checks',
-            table="artists",  # Redshift table name
-            col_name="artist_id",  # Column to check for nulls
-            redshift_conn_id="redshift"  # Redshift connection ID
+            task_id='check_artists_quality',
+            table="artists",
+            col_name="artist_id",
+            redshift_conn_id="redshift"
         )
 
-        # Data quality checks for songplays table
         songplays_data_quality_checks = DataQualityOperator(
-            task_id='songplays_data_quality_checks',
-            table="songplays",  # Redshift table name
-            col_name="playid",  # Column to check for nulls
-            redshift_conn_id="redshift"  # Redshift connection ID
+            task_id='check_songplays_quality',
+            table="songplays",
+            col_name="playid",
+            redshift_conn_id="redshift"
         )
 
-        # Data quality checks for songs table
         songs_data_quality_checks = DataQualityOperator(
-            task_id='songs_data_quality_checks',
-            table="songs",  # Redshift table name
-            col_name="songid",  # Column to check for nulls
-            redshift_conn_id="redshift"  # Redshift connection ID
+            task_id='check_songs_quality',
+            table="songs",
+            col_name="songid",
+            redshift_conn_id="redshift"
         )
 
-        # Data quality checks for time table
         time_data_quality_checks = DataQualityOperator(
-            task_id='time_data_quality_checks',
-            table="time",  # Redshift table name
-            col_name="start_time",  # Column to check for nulls
-            redshift_conn_id="redshift"  # Redshift connection ID
+            task_id='check_time_quality',
+            table="time",
+            col_name="start_time",
+            redshift_conn_id="redshift"
         )
 
-        # Data quality checks for users table
         users_data_quality_checks = DataQualityOperator(
-            task_id='users_data_quality_checks',
-            table="users",  # Redshift table name
-            col_name="userid",  # Column to check for nulls
-            redshift_conn_id="redshift"  # Redshift connection ID
+            task_id='check_users_quality',
+            table="users",
+            col_name="userid",
+            redshift_conn_id="redshift"
         )
 
-    # End dummy operator
-    end_operator = DummyOperator(task_id='Stop_execution', dag=dag)
+    # And finally, a dummy operator to mark the end of our pipeline
+    end_operator = DummyOperator(task_id='End_pipeline', dag=dag)
 
-    # Define task dependencies
+    # Define the order of operations
     start_operator >> [stage_events_to_redshift, stage_songs_to_redshift] >> load_songplays_table >> load_dimension_tables >> data_quality_check >> end_operator

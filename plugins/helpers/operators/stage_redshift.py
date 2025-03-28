@@ -5,42 +5,42 @@ from airflow.contrib.hooks.aws_hook import AwsHook
 
 class StageToRedshiftOperator(BaseOperator):
     """
-    StageToRedshiftOperator: Custom Airflow operator to copy data from S3 to Redshift staging tables.
-    It uses AWS credentials and Redshift connection details to perform the copy operation.
+    StageToRedshiftOperator: This operator is the data mover, shuttling data from S3 into Redshift staging tables.
+    It's like a delivery service for raw data, ensuring it shows up in Redshift
     """
 
-    ui_color = '#358140'  # A nice, leafy green for the Airflow UI
+    ui_color = '#358140'  # A nice, earthy green for a job well done
 
-    # SQL template for the COPY command
+    # The magic spell for copying data from S3 to Redshift
     copy_sql = """
-        COPY {}  -- Target Redshift table
-        FROM '{}' -- S3 path to the data
-        ACCESS_KEY_ID '{}' -- AWS access key
-        SECRET_ACCESS_KEY '{}' -- AWS secret key
-        JSON '{}' -- JSON format specification (auto or path)
+        COPY {}  -- Where are we putting the data? (Redshift table)
+        FROM '{}' -- Where's the data coming from? (S3 path)
+        ACCESS_KEY_ID '{}' -- How do we access S3? (AWS access key)
+        SECRET_ACCESS_KEY '{}' -- How do we access S3? (AWS secret key)
+        JSON '{}' -- What's the data format? (JSON, auto or path)
     """
 
     @apply_defaults
     def __init__(self,
                  redshift_conn_id='',  # Airflow connection ID for Redshift
                  aws_credentials_id='',  # Airflow connection ID for AWS credentials
-                 table='',  # Target Redshift table name
-                 s3_bucket='',  # S3 bucket name
+                 table='',  # Redshift table to load into
+                 s3_bucket='',  # S3 bucket where data resides
                  s3_key='',  # S3 key (path) to the data
-                 s3_json="", #JSON format 'auto' or path to json path file
+                 s3_json="", #JSON format 'auto' or path to json path file.
                  *args, **kwargs):
         """
-        Constructor. Sets up the operator with connection details, table, and S3 paths.
+        Constructor. Sets up the operator with all the necessary details for the data move.
 
         Args:
             redshift_conn_id (str): Airflow connection ID for Redshift.
             aws_credentials_id (str): Airflow connection ID for AWS credentials.
-            table (str): Target Redshift table name.
-            s3_bucket (str): S3 bucket name.
+            table (str): Redshift table to load into.
+            s3_bucket (str): S3 bucket where data resides.
             s3_key (str): S3 key (path) to the data.
             s3_json (str): 'auto' or path to the json path file.
-            *args: Extra arguments for BaseOperator.
-            **kwargs: Extra keyword arguments for BaseOperator.
+            *args: Extra arguments for the BaseOperator.
+            **kwargs: Extra keyword arguments for the BaseOperator.
         """
         super().__init__(*args, **kwargs)
         self.conn_id = redshift_conn_id
@@ -52,34 +52,33 @@ class StageToRedshiftOperator(BaseOperator):
 
     def execute(self, context):
         """
-        Executes the COPY command to load data from S3 to Redshift.
-        It handles AWS credentials retrieval, Redshift connection, and table deletion.
+        Executes the COPY command to move data from S3 to Redshift.
+        It handles all the AWS and Redshift connections, and even clears the table first.
         """
         try:
-            # Get AWS credentials from Airflow connection
-            self.log.info('Connecting to AWS...')
+            # Let's get our AWS credentials, our ticket to S3
+            self.log.info('Getting our AWS credentials...')
             aws_hook = AwsHook(self.aws_credentials_id)
             credentials = aws_hook.get_credentials()
 
-            # Get Redshift connection from Airflow connection
+            # Time to connect to Redshift, our destination
             self.log.info('Connecting to Redshift...')
             redshift = PostgresHook(postgres_conn_id=self.conn_id)
 
-            # Clear the target table before loading
-            self.log.info(f'Clearing data from {self.table}...')
+            # Let's clean the slate before loading, just to be safe
+            self.log.info(f'Clearing out {self.table} before loading...')
             redshift.run(f"DELETE FROM {self.table}")
 
-            # Construct the S3 path based on the table
+            # Figure out the S3 path, depending on the table
             if self.table == 'staging_events':
-                # Format the S3 key with execution context for dynamic paths
                 rendered_key = self.s3_key.format(**context)
                 s3_path = f"s3://{self.s3_bucket}/{rendered_key}"
             elif self.table == 'staging_songs':
                 s3_path = f"s3://{self.s3_bucket}/{self.s3_key}"
 
-            self.log.info(f'S3 path: {s3_path}')
+            self.log.info(f'S3 path to data: {s3_path}')
 
-            # Format the COPY SQL command with the required parameters
+            # Now, let's craft our COPY command, the magic spell
             formatted_sql = StageToRedshiftOperator.copy_sql.format(
                 self.table,
                 s3_path,
@@ -88,12 +87,12 @@ class StageToRedshiftOperator(BaseOperator):
                 self.s3_json
             )
 
-            self.log.info(f'Executing SQL: {formatted_sql}')
+            self.log.info(f'Executing this SQL: {formatted_sql}')
 
-            # Execute the COPY command
+            # And finally, run it
             redshift.run(formatted_sql)
 
         except Exception as err:
-            # Log any errors and re-raise the exception
+            # Oops, something went wrong. Log the error and bail out.
             self.log.exception(err)
             raise err

@@ -1,54 +1,55 @@
 class SqlQueries:
     """
-    The class, SqlQueries, contains SQL queries used in the ETL process for a data pipeline.
-    It is designed to work with AWS Redshift and it contains SQL strings for making and populating tables.
+    SqlQueries: A collection of SQL queries for our ETL pipeline.
+    Think of this as our SQL recipe book for transforming and loading data into Redshift.
+    We've got everything from fact table inserts to dimension table populating magic.
     """
 
     songplay_table_insert = ("""
         SELECT
-            md5(events.sessionid || events.start_time) songplay_id,  -- Generate a unique ID for each songplay
-            events.start_time,  -- Timestamp of the songplay
-            events.userid,  -- User ID
-            events.level,  -- User's service level (free or paid)
-            songs.song_id,  -- Song ID
-            songs.artist_id,  -- Artist ID
-            events.sessionid,  -- Session ID
-            events.location,  -- User's location
-            events.useragent  -- User's browser/OS information
+            md5(events.sessionid || events.start_time) songplay_id,  -- Let's give each songplay a unique fingerprint
+            events.start_time,  -- When did this songplay happen?
+            events.userid,  -- Who was listening?
+            events.level,  -- Free or premium listener?
+            songs.song_id,  -- What song was playing?
+            songs.artist_id,  -- And who sang it?
+            events.sessionid,  -- Which session was this?
+            events.location,  -- Where was the listener?
+            events.useragent  -- What device were they using?
         FROM (
-            SELECT TIMESTAMP 'epoch' + ts/1000 * interval '1 second' AS start_time, * -- Convert timestamp to datetime
-            FROM staging_events  -- Source table: staging_events
-            WHERE page='NextSong'  -- Filter for 'NextSong' events
+            SELECT TIMESTAMP 'epoch' + ts/1000 * interval '1 second' AS start_time, * -- Turning those timestamps into something readable
+            FROM staging_events  -- Grabbing our raw event data
+            WHERE page='NextSong'  -- Only interested in song plays
         ) events
-        LEFT JOIN staging_songs songs  -- Join with staging_songs table
-        ON events.song = songs.title  -- Join condition: song title
-            AND events.artist = songs.artist_name  -- Join condition: artist name
-            AND events.length = songs.duration  -- Join condition: song duration
+        LEFT JOIN staging_songs songs  -- Matching up songs with event data
+        ON events.song = songs.title  -- By song title
+            AND events.artist = songs.artist_name  -- And artist name
+            AND events.length = songs.duration  -- And song duration
     """)
 
     user_table_insert = ("""
-        SELECT distinct userid, firstname, lastname, gender, level  -- Select distinct user information
-        FROM staging_events  -- Source table: staging_events
-        WHERE page='NextSong'  -- Filter for 'NextSong' events
+        SELECT distinct userid, firstname, lastname, gender, level  -- Getting the lowdown on our users
+        FROM staging_events  -- From our raw event logs
+        WHERE page='NextSong'  -- Only when they play a song
     """)
 
     song_table_insert = ("""
-        SELECT distinct song_id, title, artist_id, year, duration  -- Select distinct song information
-        FROM staging_songs  -- Source table: staging_songs
+        SELECT distinct song_id, title, artist_id, year, duration  -- All about the songs
+        FROM staging_songs  -- From our song metadata
     """)
 
     artist_table_insert = ("""
-        SELECT distinct artist_id, artist_name, artist_location, artist_latitude, artist_longitude  -- Select distinct artist information
-        FROM staging_songs  -- Source table: staging_songs
+        SELECT distinct artist_id, artist_name, artist_location, artist_latitude, artist_longitude  -- The artists behind the music
+        FROM staging_songs  -- From our song metadata
     """)
 
     time_table_insert = ("""
-        SELECT start_time,  -- Start time of the songplay
-               extract(hour from start_time),  -- Extract hour from start time
-               extract(day from start_time),  -- Extract day from start time
-               extract(week from start_time),  -- Extract week from start time
-               extract(month from start_time),  -- Extract month from start time
-               extract(year from start_time),  -- Extract year from start time
-               extract(dayofweek from start_time)  -- Extract day of week from start time
-        FROM songplays  -- Source table: songplays
+        SELECT start_time,  -- When did the songplay happen?
+               extract(hour from start_time),  -- Hour of the day
+               extract(day from start_time),  -- Day of the month
+               extract(week from start_time),  -- Week of the year
+               extract(month from start_time),  -- Month of the year
+               extract(year from start_time),  -- Year
+               extract(dayofweek from start_time)  -- Day of the week
+        FROM songplays  -- From our songplays fact table
     """)

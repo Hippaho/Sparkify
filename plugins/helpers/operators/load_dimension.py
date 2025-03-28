@@ -4,13 +4,13 @@ from airflow.utils.decorators import apply_defaults
 
 class LoadDimensionOperator(BaseOperator):
     """
-    LoadDimensionOperator: A custom Airflow operator to load dimension tables in Redshift.
-    It takes SQL queries and table names, and handles the insertion.
+    LoadDimensionOperator: Your trusty sidekick for populating dimension tables in Redshift.
+    Think of it as the librarian, neatly organizing your data into its proper shelves.
     """
 
-    ui_color = '#80BD9E'  # A nice green color for the Airflow UI
+    ui_color = '#80BD9E'  # A soothing green, for things that go well
 
-    # Default query template for inserting into dimension tables
+    # The magic spell for inserting data into our dimension tables
     dim_query = """
         INSERT INTO public.{table}
         {sql}
@@ -18,19 +18,19 @@ class LoadDimensionOperator(BaseOperator):
 
     @apply_defaults
     def __init__(self,
-                table="",  # Name of the dimension table in Redshift
-                sql="",    # SQL query to fetch data for the dimension table
-                redshift_conn_id="",  # Airflow connection ID for Redshift
-                *args, **kwargs):
+                 table="",  # The name of the dimension table we're filling
+                 sql="",    # The SQL recipe for getting the data
+                 redshift_conn_id="",  # How we connect to Redshift (Airflow connection ID)
+                 *args, **kwargs):
         """
-        Constructor. Sets up the operator with table, SQL, and connection details.
+        Constructor. Sets up our librarian with the table, the recipe (SQL), and the connection details.
 
         Args:
-            table (str): Target dimension table name in Redshift.
-            sql (str): SQL query to populate the dimension table.
-            redshift_conn_id (str): Airflow connection ID for Redshift.
-            *args: Extra arguments for BaseOperator.
-            **kwargs: Extra keyword arguments for BaseOperator.
+            table (str): The dimension table we're loading into.
+            sql (str): The SQL query that fetches the data.
+            redshift_conn_id (str): The Redshift connection ID.
+            *args: Extra arguments for the BaseOperator.
+            **kwargs: Extra keyword arguments for the BaseOperator.
         """
         super(LoadDimensionOperator, self).__init__(*args, **kwargs)
         self.sql = sql
@@ -40,22 +40,22 @@ class LoadDimensionOperator(BaseOperator):
     def execute(self, context):
         """
         Executes the SQL query to load data into the dimension table.
-        Basically, it runs the insert statement.
+        Basically, we're just running the insert statement and hoping for the best.
         """
         try:
-            # Get a hook to our Redshift database
+            # Grab our Redshift connection, the librarian's direct line to the database
             redshift = PostgresHook(postgres_conn_id=self.conn_id)
 
-            # Let's see what query we're about to run
-            self.log.info(f"Running: {self.dim_query}")
+            # Let's peek at the magic spell we're about to cast
+            self.log.info(f"Casting this spell: {self.dim_query}")
 
-            # Run the actual insert statement
+            # Run the actual insert spell!
             redshift.run(self.dim_query.format(table=self.table, sql=self.sql))
 
-            # Tell the logs we're done
-            self.log.info(f"Successfully loaded data into {self.table}")
+            # All good, let's tell everyone we're done
+            self.log.info(f"Successfully shelved the data into {self.table}")
 
         except Exception as err:
-            # If anything goes wrong, log the error and bail out
+            # Oops, something went wrong. Log the error and bail out
             self.log.exception(err)
             raise err
